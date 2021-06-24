@@ -1,0 +1,783 @@
+---
+title: "Publication Analysis"
+author: "Kolby Grint"
+date: "6/24/2021"
+output: pdf_document
+---
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+  echo = TRUE,
+  message = TRUE,
+  warning = TRUE)
+```
+
+
+```{r, include= FALSE}
+library(car)
+library(tidyverse)
+library(emmeans)
+library(lme4)
+library(multcomp)
+library(lmerTest)
+library(glmmTMB)
+library(patchwork)
+```
+
+```{r load-data, include= FALSE}
+data = read_csv(file="SystemsProjectMasterDataforR.csv")
+ylab.text1= bquote('Yield'~(kg~ha^-1))
+ylab.text2= bquote('Yield'~(bu~acre^-1))
+expression("Yield kg ha"^"-1")
+```
+
+
+```{r tidy-data}
+data1 <- data %>% 
+  janitor::clean_names() %>% 
+  mutate(rep = as_factor(rep),
+         year = as_factor(year),
+         pre = fct_recode(pre,
+                          "Yes PRE" = "Y",
+                          "No PRE"  = "N"),
+         soil = fct_recode(soil,
+                           "Tillage" = "CT",
+                           "No-Till" = "NT",
+                           "Early Termination" = "CCET",
+                           "Plant Termination" = "CCPT",
+                           "Forage Harvest" = "CCFH",
+                           "Late Termination" = "CCLT"),
+          weed_control = round(weed_control/100, 2),
+          weed_control = case_when(
+           weed_control == 1.00 ~ 0.99,
+           weed_control == 0.00 ~ 0.01,
+           TRUE                 ~ weed_control)) %>%
+  filter(!is.na(yield)) %>%
+  filter(!is.na(weed_control))
+corn= data1 %>%
+  filter(crop == "Corn") %>%
+  mutate(weed_cover= 1-weed_control)
+soybean= data1 %>%
+  filter(crop == "Soybean") %>%
+  mutate(weed_cover= 1-weed_control)
+#order<- c("CT", "NT", "CCET", "CCPT","CCFH","CCLT")
+order<- c("Tillage", "No-Till", "Early Termination", "Plant Termination", "Forage Harvest", "Late Termination")
+```
+
+# Yield 
+
+## Corn
+```{r}
+corn_yld= lmer(yield ~ soil * pre * location + (1|rep/site_crop_yr) + (1|year), data = corn, REML = FALSE)
+qqnorm(resid(corn_yld))
+plot(corn_yld)
+#assumptions met
+summary(corn_yld)
+anova(corn_yld)
+#Soil:location interaction significant so going to perform separate analyses for each location
+```
+
+### Arlington Corn Yield
+```{r}
+arl_corn_yld= lmer(yield ~ soil + (1|rep/year), data = (filter(corn, location == "Arlington")))
+qqnorm(resid(arl_corn_yld))
+plot(arl_corn_yld)
+#assumptions met
+summary(arl_corn_yld)
+#variance between reps is very small
+```
+
+```{r}
+anova(arl_corn_yld)
+#Soil and PRE fixed effects significant
+```
+
+```{r}
+arl_cornyld_soillsmeans= lsmeans(arl_corn_yld, ~ soil, contr="pairwise", adjust="none")
+arl_cornyld_soilcld= cld(arl_cornyld_soillsmeans$lsmeans, alpha=0.05, Letters=letters, adjust="tukey", sort=TRUE, reverse=TRUE)
+arl_cornyld_soilcld <- as_tibble(arl_cornyld_soilcld) %>% 
+  rename(yield = lsmean) %>%
+  mutate(soil= factor(soil, levels= order)) %>%
+  arrange(soil)
+```
+
+```{r}
+y1 = ggplot(arl_cornyld_soilcld, aes(x = soil, y = yield, 
+                                     color = soil)) +
+  geom_point(size= 3) +
+  geom_errorbar(aes(ymin= lower.CL, ymax= upper.CL), width= .3) +
+  geom_text(aes(label = .group), nudge_y = 2800, size=6) +
+  geom_jitter(data = corn %>% 
+                filter(location == "Arlington"), mapping = aes(y = yield), alpha = 0.2) +
+  #coord_flip() +
+  #scale_y_continuous(sec.axis = sec_axis(trans = ~./2.47/.454/56, name= ylab.text2))+
+  theme_bw() +
+  scale_color_brewer(palette = "Dark2") +
+  theme(legend.position = "none",
+        plot.title= element_text(size=25),
+        axis.title.x=element_text(size= 25),
+        axis.title.y= element_text(size= 25),
+        axis.text= element_text(size= 15))+
+  ylim(0,19000)+ 
+  labs(title = "Arlington", x= "", y= ylab.text1)
+```
+
+
+### Lancaster Corn Yield
+```{r}
+lan_corn_yld= lmer(yield ~ soil + (1|rep/year), data = (filter(corn, location == "Lancaster")))
+qqnorm(resid(lan_corn_yld))
+plot(lan_corn_yld)
+#assumptions met
+summary(lan_corn_yld)
+```
+
+```{r}
+anova(lan_corn_yld)
+#Soil fixed effects significant
+```
+
+```{r}
+lan_cornyld_soillsmeans= lsmeans(lan_corn_yld, ~ soil, contr="pairwise", adjust="none")
+lan_cornyld_soilcld= cld(lan_cornyld_soillsmeans$lsmeans, alpha=0.05, Letters=letters, adjust="tukey", sort=TRUE, reverse=TRUE)
+lan_cornyld_soilcld <- as_tibble(lan_cornyld_soilcld) %>% 
+  rename(yield = lsmean) %>%
+  mutate(soil= factor(soil, levels= order)) %>%
+  arrange(soil)
+```
+
+
+```{r}
+y2 = ggplot(lan_cornyld_soilcld, aes(x = soil, y = yield, 
+                       color = soil)) +
+  geom_point(size= 3) +
+  geom_errorbar(aes(ymin= lower.CL, ymax= upper.CL), width= .3) +
+  geom_text(aes(label = .group), nudge_y = 3000, size=6) +
+  geom_jitter(data = corn %>% 
+                filter(location == "Lancaster"), mapping = aes(y = yield), alpha = 0.2) +
+  #scale_y_continuous(sec.axis= sec_axis(~./2.47/.454/56, name= ylab.text2), limits= c(0,19000)) +
+  #coord_flip() +
+  theme_bw() +
+  scale_color_brewer(palette = "Dark2") +
+  theme(legend.position = "none",
+        plot.title= element_text(size=25),
+        axis.title.x=element_text(size= 25),
+        axis.title.y= element_blank(),
+        axis.text.y= element_blank(),
+        axis.text= element_text(size= 15))+
+  ylim(0,19000)+
+  labs(title = "Lancaster", y= ylab.text1, x= "") 
+```
+
+
+```{r}
+### Non-journal figures
+y5 = ggplot(arl_cornyld_soilcld, aes(x = soil, y = yield, 
+                                     color = soil)) +
+  geom_point(size= 3) +
+  geom_errorbar(aes(ymin= lower.CL, ymax= upper.CL), width= .3) +
+  geom_text(aes(label = .group), nudge_y = 2800, size=6) +
+  geom_jitter(data = corn %>% 
+                filter(location == "Arlington"), mapping = aes(y = yield), alpha = 0.2) +
+  coord_flip() +
+  scale_y_continuous(name= ylab.text1, sec.axis= sec_axis(~./2.47/.454/56, name= ylab.text2), limits= c(0,19000)) +
+  theme_bw() +
+  scale_color_brewer(palette = "Dark2") +
+  theme(legend.position = "none",
+        plot.title= element_text(size=25),
+        axis.title.x=element_text(size= 20),
+        axis.title.y= element_text(size= 20),
+        axis.text= element_text(size= 15))+
+  #ylim(0,19000)+ 
+  labs(title = "Arlington", x= "" )
+y6 = ggplot(lan_cornyld_soilcld, aes(x = soil, y = yield, 
+                       color = soil)) +
+  geom_point(size= 3) +
+  geom_errorbar(aes(ymin= lower.CL, ymax= upper.CL), width= .3) +
+  geom_text(aes(label = .group), nudge_y = 3000, size=6) +
+  geom_jitter(data = corn %>% 
+                filter(location == "Lancaster"), mapping = aes(y = yield), alpha = 0.2) +
+  scale_y_continuous(name= ylab.text1, sec.axis= sec_axis(~./2.47/.454/56, name= ylab.text2), limits= c(0,19000)) +
+  coord_flip() +
+  theme_bw() +
+  scale_color_brewer(palette = "Dark2") +
+  theme(legend.position = "none",
+        plot.title= element_text(size=25),
+        axis.title.x=element_text(size= 20),
+        axis.title.y= element_text(size= 20),
+        axis.text= element_text(size= 15))+
+  #ylim(0,19000)+
+  labs(title = "Lancaster", x= "") 
+```
+
+
+```{r, fig.height= 6, fig.width= 12}
+CNyield <- {y1 + y2}+
+  plot_annotation(title = 'Corn Yield',
+  #subtitle = "2019 - 2020 Wisconsin",
+  theme = theme(plot.title = element_text(size = 30),
+                plot.subtitle= element_text(size = 20))) 
+  #ggsave("Corn_YieldFigureSI.jpeg", height= 6, width= 12)#Need to alter element text
+CNyield
+```
+
+
+```{r, fig.height= 12, fig.width= 12}
+CNyield1 <- {y5/y6}
+```
+
+```{r, fig.height= 6, fig.width= 15}
+CNyield2 <- {y5+y6}
+```
+
+
+
+## Soybean
+```{r}
+soy_yld= lmer(yield ~ soil * pre * location + (1|rep/site_crop_yr) + (1|year), data = soybean)
+qqnorm(resid(soy_yld))
+plot(soy_yld)
+#assumptions met
+anova(soy_yld)
+# location fixed effect significant
+```
+
+```{r}
+soyyld_lsmeans= lsmeans(soy_yld, ~ location, contr="pairwise", adjust="none")
+soyyld_lcld= cld(soyyld_lsmeans$lsmeans, alpha=0.05, Letters=letters, adjust="tukey", sort=TRUE, reverse=TRUE)
+soyyld_soillsmeans= lsmeans(soy_yld, ~ soil|location, contr="pairwise", adjust="none")
+soyyld_soilcld= cld(soyyld_soillsmeans$lsmeans, alpha=0.05, Letters=letters, adjust="tukey", sort=TRUE, reverse=TRUE)
+soyyld_soilcld <- as_tibble(soyyld_soilcld) %>% 
+  rename(yield = lsmean) %>%
+  mutate(soil= factor(soil, levels= order)) %>%
+  arrange(soil)
+```
+
+```{r}
+y3 <- ggplot(filter(soyyld_soilcld, location == "Arlington"), aes(x = soil, y = yield, 
+                       color = soil)) +
+  geom_point(size= 3) +
+  geom_errorbar(aes(ymin= lower.CL, ymax= upper.CL), width= .3) +
+  #geom_text(aes(label = .group), nudge_y = 800, size=6) +
+  geom_jitter(data = soybean %>% 
+                filter(location == "Arlington"), mapping = aes(y = yield), alpha = 0.2) +
+  #coord_flip() +
+  #scale_y_continuous(sec.axis= sec_axis(~./2.47/.454/56, name= ylab.text2), limits= c(0,19000))+
+  theme_bw() +
+  scale_color_brewer(palette = "Dark2") +
+  theme(legend.position = "none",
+        plot.title= element_text(size=25),
+        axis.title.x=element_text(size= 25),
+        axis.title.y= element_text(size= 25),
+        axis.text= element_text(size= 15))+
+  ylim(0,6200)+
+  labs(title = "Arlington", x= "Soil Management Practice", y= ylab.text1)
+```
+
+
+```{r}
+y4 <- ggplot(filter(soyyld_soilcld, location == "Lancaster"), aes(x = soil, y = yield, 
+                       color = soil)) +
+  geom_point(size= 3) +
+  geom_errorbar(aes(ymin= lower.CL, ymax= upper.CL), width= .3) +
+  #geom_text(aes(label = .group), nudge_y = 700, size=6) +
+  geom_jitter(data = soybean %>% 
+                filter(location == "Lancaster"), mapping = aes(y = yield), alpha = 0.2) +
+  #coord_flip() +
+  #scale_y_continuous(sec.axis= sec_axis(~./2.47/.454/56, name= ylab.text2), limits= c(0,19000))+
+  theme_bw() +
+  scale_color_brewer(palette = "Dark2") +
+  theme(legend.position = "none",
+        plot.title= element_text(size=25),
+        axis.title.x=element_text(size= 25),
+        axis.title.y= element_blank(),
+        axis.text.y= element_blank(),
+        axis.text= element_text(size= 15))+
+  ylim(0,6200)+
+  labs(title = "Lancaster", y= ylab.text1, x= "Soil Management Practice")
+```
+
+
+```{r}
+### Non-journal figures
+y7 <- ggplot(filter(soyyld_soilcld, location == "Arlington"), aes(x = soil, y = yield, 
+                       color = soil)) +
+  geom_point(size= 3) +
+  geom_errorbar(aes(ymin= lower.CL, ymax= upper.CL), width= .3) +
+  #geom_text(aes(label = .group), nudge_y = 800, size=6) +
+  geom_jitter(data = soybean %>% 
+                filter(location == "Arlington"), mapping = aes(y = yield), alpha = 0.2) +
+  coord_flip() +
+  scale_y_continuous(name= ylab.text1, sec.axis= sec_axis(~./2.47/.454/60, name= ylab.text2), limits= c(0,6200)) +
+  theme_bw() +
+  scale_color_brewer(palette = "Dark2") +
+  theme(legend.position = "none",
+        plot.title= element_text(size=25),
+        axis.title.x=element_text(size= 25),
+        axis.title.y= element_text(size= 25),
+        axis.text= element_text(size= 15))+
+  #ylim(0,6200)+
+  labs(title = "Arlington", x= "", y= ylab.text1)
+y8 <- ggplot(filter(soyyld_soilcld, location == "Lancaster"), aes(x = soil, y = yield, 
+                       color = soil)) +
+  geom_point(size= 3) +
+  geom_errorbar(aes(ymin= lower.CL, ymax= upper.CL), width= .3) +
+  #geom_text(aes(label = .group), nudge_y = 700, size=6) +
+  geom_jitter(data = soybean %>% 
+                filter(location == "Lancaster"), mapping = aes(y = yield), alpha = 0.2) +
+  coord_flip() +
+  scale_y_continuous(name= ylab.text1, sec.axis= sec_axis(~./2.47/.454/60, name= ylab.text2), limits= c(0,6200)) +
+  theme_bw() +
+  scale_color_brewer(palette = "Dark2") +
+  theme(legend.position = "none",
+        plot.title= element_text(size=25),
+        axis.title.x=element_text(size= 25),
+        axis.title.y= element_blank(),
+        axis.text.y= element_blank(),
+        axis.text= element_text(size= 15))+
+  #ylim(0,6200)+
+  labs(title = "Lancaster", y= ylab.text1, x= "Soil Management Practice")
+```
+
+
+```{r, fig.height= 6, fig.width= 12}
+SByield<- {y3 + y4}+
+  plot_annotation(title = 'Soybean Yield',
+  #subtitle = "2019 - 2020 Wisconsin",
+  theme = theme(plot.title = element_text(size = 30),
+                plot.subtitle= element_text(size = 20))) 
+  #ggsave("Corn_YieldFigureSI.jpeg", height= 6, width= 12)#Need to alter element text
+SByield
+```
+
+```{r, fig.height= 6, fig.width= 15}
+SByield1 <- {y7+y8}
+```
+
+# Weed Control
+
+## Corn
+```{r}
+corn_weed = glmmTMB(weed_cover ~ soil * pre * location + (1|rep/site_crop_yr) + (1|year), data = corn, beta_family(link="logit"))
+glmmTMB:::Anova.glmmTMB(corn_weed, repr = "FALSE") # use the Anova function from the glmmTMB package
+```
+
+```{r}
+cn_weedemmeans <- emmeans(corn_weed, ~ soil * pre, contr="pairwise", adjust="none", type= "response")
+# If you want to show facet_grid by pre you should use | instead of *
+cn_weedcld <- cld(cn_weedemmeans$emmeans, alpha=0.05, Letters=letters, adjust="tukey", sort = TRUE, reverse = TRUE)
+# sort = FALSE reverse letters
+#Kolby- When I have Sort= TRUE, I don't have the issue with letters being patchy
+cn_weedcld <- as_tibble(cn_weedcld) %>% 
+  rename(weed_cover = response) %>%
+  mutate(soil= factor(soil, levels= order)) %>%
+  arrange(soil)
+```
+
+```{r}
+# now letters compare trt at each facet (pre)
+# CCET is bd, not sure but I think is bcd
+w1 <- ggplot(cn_weedcld, aes(x = soil, y = weed_cover*100, color = soil)) +
+  geom_point(size= 3) +
+  geom_errorbar(aes(ymin= lower.CL*100, ymax= upper.CL*100), width= .3) +
+  geom_text(aes(label = .group), nudge_y = 30, size=6) +
+  geom_jitter(data = corn, mapping = aes(y = weed_cover*100), alpha = 0.2) +
+  facet_wrap(~pre)+
+  #coord_flip() +
+  theme_bw() +
+  scale_color_brewer(palette = "Dark2") +
+   theme(legend.position = "none",
+        plot.title= element_text(size=25),
+        axis.title.x=element_text(size= 25),
+        axis.title.y=element_text(size= 25),
+        axis.text= element_text(size= 15))+
+  ylim(0,100)+
+  labs(x= "", y= "% Weed Ground Cover") 
+w1
+# before all Yes Pre were similar to CCLT No pRe
+```
+
+```{r}
+w5 <- ggplot(cn_weedcld, aes(x = soil, y = weed_cover*100, color = soil)) +
+  geom_point(size= 3) +
+  geom_errorbar(aes(ymin= lower.CL*100, ymax= upper.CL*100), width= .3) +
+  geom_text(aes(label = .group), nudge_y = 40, size=6) +
+  geom_jitter(data = corn, mapping = aes(y = weed_cover*100), alpha = 0.2) +
+  facet_wrap(~pre)+
+  coord_flip() +
+  theme_bw() +
+  scale_color_brewer(palette = "Dark2") +
+   theme(legend.position = "none",
+        plot.title= element_text(size=25),
+        axis.title.x=element_text(size= 25),
+        axis.title.y=element_text(size= 25),
+        axis.text= element_text(size= 15),
+        strip.text = element_text(size= 15))+
+  ylim(0,100)+
+  labs(x= "", y= "% Weed Ground Cover") 
+w5
+```
+
+
+
+```{r, fig.height=6, fig.width= 12}
+CNweed <- {w1}+
+  plot_annotation(title = 'Corn - Weed Ground Cover',
+  #subtitle = "2019 - 2020 Wisconsin",
+  theme = theme(plot.title = element_text(size = 30),
+                plot.subtitle= element_text(size = 20))) 
+  #ggsave("Corn_YieldFigureSI.jpeg", height= 6, width= 12)#Need to alter element text
+CNweed
+```
+
+
+## Soybean
+```{r}
+soy_weed= glmmTMB(weed_cover ~ soil * pre * location + (1|rep/site_crop_yr) + (1|year), data = soybean, beta_family(link="logit"))
+glmmTMB:::Anova.glmmTMB(soy_weed)
+#Soil:PRE and Soil:location interactions significant.
+```
+
+
+### Arlington 
+```{r}
+arlsoy_weed= glmmTMB(weed_cover ~ soil + (1|rep/year), data = filter(soybean, location == "Arlington"), beta_family(link="logit"))
+glmmTMB:::Anova.glmmTMB(arlsoy_weed)
+#soil fixed effect significant
+```
+
+```{r}
+arlsoy_weedemmeans <- emmeans(arlsoy_weed, ~ soil, contr="pairwise", adjust="none", type= "response")
+arlsoy_weedcld <- cld(arlsoy_weedemmeans$emmeans, alpha=0.05, Letters=letters, adjust="tukey", sort = FALSE, reverse= FALSE)
+arlsoy_weedcld <- as_tibble(arlsoy_weedcld) %>% 
+  rename(weed_cover = response) %>%
+  mutate(soil= factor(soil, levels= order)) %>%
+  arrange(soil)
+```
+
+```{r}
+w2 <- ggplot(arlsoy_weedcld, aes(x = soil, y = weed_cover*100, 
+                       color = soil)) +
+  geom_point(size= 3) +
+  geom_errorbar(aes(ymin= lower.CL*100, ymax= upper.CL*100), width= .3) +
+  geom_text(aes(label = .group), nudge_y = 30, size=6) +
+  geom_jitter(data = soybean %>% 
+                filter(location == "Arlington"), mapping = aes(y = weed_cover*100), alpha = 0.2) +
+  #facet_wrap(~pre)+
+  #coord_flip() +
+  theme_bw() +
+  scale_color_brewer(palette = "Dark2") +
+   theme(legend.position = "none",
+        plot.title= element_text(size=25),
+        axis.title.x=element_text(size= 25),
+        axis.title.y=element_text(size= 25),
+        axis.text= element_text(size= 15))+
+  ylim(0,100)+
+  labs(title = "Arlington", x= "Soil Management Practice", y= "% Weed Ground Cover")
+w2
+```
+
+
+```{r}
+w5 <- ggplot(arlsoy_weedcld, aes(x = soil, y = weed_cover*100, 
+                       color = soil)) +
+  geom_point(size= 3) +
+  geom_errorbar(aes(ymin= lower.CL*100, ymax= upper.CL*100), width= .3) +
+  geom_text(aes(label = .group), nudge_y = 30, size=6) +
+  geom_jitter(data = soybean %>% 
+                filter(location == "Arlington"), mapping = aes(y = weed_cover*100), alpha = 0.2) +
+  #facet_wrap(~pre)+
+  coord_flip() +
+  theme_bw() +
+  scale_color_brewer(palette = "Dark2") +
+   theme(legend.position = "none",
+        plot.title= element_text(size=25),
+        axis.title.x=element_text(size= 25),
+        axis.title.y=element_text(size= 25),
+        axis.text= element_text(size= 15))+
+  ylim(0,100)+
+  labs(title = "Arlington", x= "", y= "% Weed Ground Cover")
+w5
+```
+
+
+### Lancaster
+```{r}
+lansoy_weed <- glmmTMB(weed_cover ~ soil + (1|rep/year), data = filter(soybean, location == "Lancaster"), beta_family(link="logit"))
+glmmTMB:::Anova.glmmTMB(lansoy_weed)
+#Soil fixed effect significant
+```
+
+```{r}
+lansoy_weedemmeans <- emmeans(lansoy_weed, ~ soil, contr="pairwise", adjust="none", type= "response")
+lansoy_weedcld <- cld(lansoy_weedemmeans$emmeans, alpha=0.05, Letters=letters, adjust="tukey", sort = FALSE, reverse= TRUE)
+# consider adjusting (adjust = "Tukey"). 
+lansoy_weedcld <- as_tibble(lansoy_weedcld) %>% 
+  rename(weed_cover = response) %>%
+  mutate(soil= factor(soil, levels= order)) %>%
+  arrange(soil)
+```
+
+```{r}
+#ann_text= data.frame(soil= "CCLT", weed_cover= 0.65, pre= "Yes PRE", text= "Soil*PRE P-value: < 0.01" )
+w3 <- ggplot(lansoy_weedcld, aes(x = soil, y = weed_cover*100, color = soil)) +
+  geom_point(size= 3) +
+  geom_errorbar(aes(ymin= lower.CL*100, ymax= upper.CL*100), width= .3) +
+  geom_text(aes(label = .group, color= soil), nudge_y = 27, size=6) +
+  geom_jitter(data = soybean %>% 
+                filter(location == "Lancaster"), mapping = aes(y = weed_cover*100), alpha = 0.2) +
+  #facet_wrap(~pre)+
+  #coord_flip() +
+  theme_bw() +
+  scale_color_brewer(palette = "Dark2") +
+   theme(legend.position = "none",
+        plot.title= element_text(size=25),
+        axis.title.x=element_text(size= 25),
+        axis.title.y= element_blank(),
+        axis.text.y= element_blank(),
+        axis.text= element_text(size= 15))+
+  ylim(0,100) +
+  labs(title = "Lancaster", y= "% Weed Ground Cover", x= "Soil Management Practice")
+w3
+```
+
+```{r}
+w6 <- ggplot(lansoy_weedcld, aes(x = soil, y = weed_cover*100, color = soil)) +
+  geom_point(size= 3) +
+  geom_errorbar(aes(ymin= lower.CL*100, ymax= upper.CL*100), width= .3) +
+  geom_text(aes(label = .group, color= soil), nudge_y = 27, size=6) +
+  geom_jitter(data = soybean %>% 
+                filter(location == "Lancaster"), mapping = aes(y = weed_cover*100), alpha = 0.2) +
+  #facet_wrap(~pre)+
+  coord_flip() +
+  theme_bw() +
+  scale_color_brewer(palette = "Dark2") +
+   theme(legend.position = "none",
+        plot.title= element_text(size=25),
+        axis.title.x=element_text(size= 25),
+        axis.title.y= element_blank(),
+        axis.text= element_text(size= 15))+
+  ylim(0,100) +
+  labs(title = "Lancaster", y= "% Weed Ground Cover", x= "")
+w6
+```
+
+
+```{r}
+soy_weed1 <- glmmTMB(weed_cover ~ soil * pre + (1|rep/site_crop_yr) + (1|year), data = soybean, beta_family(link="logit"))
+glmmTMB:::Anova.glmmTMB(soy_weed1)
+#Interaction significant
+```
+
+```{r}
+soy_weedemmeans <- emmeans(soy_weed1, ~ soil*pre, contr="pairwise", adjust="none", type= "response")
+# Consider using | instead * if you want to compare soil manag in each pre
+soy_weedcld <- cld(soy_weedemmeans$emmeans, alpha=0.05, Letters=letters, adjust="tukey", sort=TRUE, reverse= TRUE)
+soy_weedcld <- as_tibble(soy_weedcld) %>% 
+  rename(weed_cover = response) %>%
+  mutate(soil= factor(soil, levels= order)) %>%
+  arrange(soil)
+```
+
+```{r}
+w4 <- ggplot(soy_weedcld, aes(x = soil, y = weed_cover*100, color = soil)) +
+  geom_point(size= 3) +
+  geom_errorbar(aes(ymin= lower.CL*100, ymax= upper.CL*100), width= .3) +
+  geom_text(aes(label = .group), nudge_y = 40, size=6) +
+  geom_jitter(data = soybean, mapping = aes(y = weed_cover*100), alpha = 0.2) +
+  facet_wrap(~pre)+
+  coord_flip() +
+  theme_bw() +
+  scale_color_brewer(palette = "Dark2") +
+   theme(legend.position = "none",
+        plot.title= element_text(size=25),
+        axis.title.x=element_text(size= 25),
+        axis.title.y=element_text(size= 25),
+        axis.text= element_text(size= 15),
+        strip.text= element_text(size= 15))+
+  ylim(0,100)+
+  labs(x= "Soil Management Practice", y= "% Weed Ground Cover")
+w4
+```
+
+```{r, fig.height= 6, fig.width= 15}
+w7 <- ggplot(soy_weedcld, aes(x = soil, y = weed_cover*100, color = soil)) +
+  geom_point(size= 3) +
+  geom_errorbar(aes(ymin= lower.CL*100, ymax= upper.CL*100), width= .3) +
+  geom_text(aes(label = .group), nudge_y = 40, size=6) +
+  geom_jitter(data = soybean, mapping = aes(y = weed_cover*100), alpha = 0.2) +
+  facet_wrap(~pre)+
+  coord_flip() +
+  theme_bw() +
+  scale_color_brewer(palette = "Dark2") +
+   theme(legend.position = "none",
+        plot.title= element_text(size=25),
+        axis.title.x=element_text(size= 25),
+        axis.title.y=element_text(size= 25),
+        axis.text= element_text(size= 15),
+        strip.text= element_text(size= 15))+
+  ylim(0,100)+
+  labs(x= "", y= "% Weed Ground Cover")
+w7
+```
+
+
+```{r, fig.height= 6, fig.width= 12}
+SBweed<- {w2 + w3}+
+  plot_annotation(title = 'Soybean - Weed Ground Cover',
+  #subtitle = "2019 - 2020 Wisconsin",
+  theme = theme(plot.title = element_text(size = 30),
+                plot.subtitle= element_text(size = 20))) 
+  #ggsave("Corn_YieldFigureSI.jpeg", height= 6, width= 12)#Need to alter element text
+SBweed
+```
+
+```{r, fig.height= 6, fig.width= 15}
+SBweed2<- {w5 + w6}
+```
+
+
+```{r, fig.height= 6, fig.width= 12}
+SBweed1<- {w4} +
+  plot_annotation(title = 'Soybean - Weed Ground Cover',
+  #subtitle = "2019 - 2020 Wisconsin",
+  theme = theme(plot.title = element_text(size = 30),
+                plot.subtitle= element_text(size = 20))) 
+  #ggsave("Corn_YieldFigureSI.jpeg", height= 6, width= 12)#Need to alter element text
+SBweed1
+```
+
+# CC Biomass
+
+```{r, include= FALSE}
+data2= read.csv(file="CoverCropBiomassMaster.csv")
+str(data2)
+```
+
+```{r, include= FALSE}
+corncc <- data2 %>% 
+  janitor::clean_names() %>%
+  filter(crop == "Corn") %>%
+  filter(!is.na(field_bio)) %>%
+  mutate(rep = as_factor(rep),
+         yr = as_factor(yr),
+         late_pre = fct_recode(late_pre,
+                          "Yes PRE" = "Y",
+                          "No PRE"  = "N"))
+  
+soybeancc <- data2 %>% 
+  janitor::clean_names() %>%
+  filter(crop == "Soybean") %>%
+  filter(!is.na(field_bio)) %>%
+  mutate(rep = as_factor(rep),
+         yr = as_factor(yr),
+         late_pre = fct_recode(late_pre,
+                          "Yes PRE" = "Y",
+                          "No PRE"  = "N"))
+```
+
+## Testing for Potential PRE Effect in Corn
+```{r}
+corn_ccpre <- lmer(field_bio ~ late_pre * location + (1|rep/site_crop_yr) + (1|yr), data= filter(corncc, termination == "Late"))
+qqnorm(resid(corn_ccpre))
+plot(corn_ccpre)
+#assumptions met okay
+anova(corn_ccpre)
+#nothing significant
+```
+
+```{r}
+cn_ccprelsmeans= lsmeans(corn_ccpre, ~late_pre, contr="pairwise", adjust="none", type= "response")
+cn_ccprecld= cld(cn_ccprelsmeans$lsmeans, alpha=0.05, Letters=letters, adjust="none", sort=TRUE, reverse= TRUE)
+cn_ccprecld
+```
+
+
+## Testing for Potential PRE Effect in Soybean
+```{r}
+soybean_ccpre= lmer(field_bio ~ late_pre * location + (1|rep/site_crop_yr) + (1|yr), data= filter(soybeancc, termination == "Late"))
+qqnorm(resid(soybean_ccpre))
+plot(soybean_ccpre)
+#assumptions met okay
+anova(soybean_ccpre)
+#nothing significant
+```
+
+```{r}
+sb_ccprelsmeans <- lsmeans(soybean_ccpre, ~late_pre, contr="pairwise", adjust="none", type= "response")
+sb_ccprecld <- cld(sb_ccprelsmeans$lsmeans, alpha=0.05, Letters=letters, adjust="none", sort=TRUE, reverse= TRUE)
+sb_ccprecld
+```
+
+
+## Corn CC Biomass
+
+```{r}
+corncc <- corncc %>%
+  filter(late_pre != "Yes PRE")
+```
+
+
+```{r}
+corn_cc <- lmer(field_bio ~ termination * location + (1|rep/site_crop_yr) + (1|yr), data= corncc)
+qqnorm(resid(corn_cc))
+plot(corn_cc)
+#assumption for equal variance not met
+corn_cc1 <- lmer(log(field_bio) ~ termination * location + (1|rep/site_crop_yr) + (1|yr), data= corncc)
+qqnorm(resid(corn_cc1))
+plot(corn_cc1)
+#assumption for equal variance improved but still not satisfied
+corn_cc2 <- lmer(log(field_bio) ~ termination * location + (1|rep/site_crop_yr) + (1|yr), data= corncc)
+qqnorm(resid(corn_cc2))
+plot(corn_cc2)
+#assumptions met best, Use this one!
+anova(corn_cc2)
+#termination timing significant
+```
+
+```{r}
+cn_cclsmeans1= lsmeans(corn_cc2, ~location, contr="pairwise", adjust="none", type= "response")
+cn_cccld1= cld(cn_cclsmeans1$lsmeans, alpha=0.05, Letters=letters, adjust="none", sort=TRUE, reverse= FALSE)
+cn_cccld1
+cn_cclsmeans= lsmeans(corn_cc2, ~termination, contr="pairwise", adjust="none", type= "response")
+cn_cccld= cld(cn_cclsmeans$lsmeans, alpha=0.05, Letters=letters, adjust="tukey", sort=TRUE, reverse= FALSE)
+cn_cccld
+```
+
+
+
+
+## Soybean CC Biomass
+
+```{r}
+soybeancc= soybeancc %>%
+  filter(late_pre != "Yes PRE")
+```
+
+```{r}
+soybean_cc= lmer(field_bio ~ termination * location + (1|rep/site_crop_yr) + (1|yr), data= soybeancc)
+qqnorm(resid(soybean_cc))
+plot(soybean_cc)
+#Transform, equal variance assumption not met
+soybean_cc2= lmer(sqrt(field_bio) ~ termination * location + (1|rep/site_crop_yr) + (1|yr), data= soybeancc)
+qqnorm(resid(soybean_cc2))
+plot(soybean_cc2)
+#Still not satisfied with equal variance assumption
+soybean_cc1= lmer(log(field_bio) ~ termination * location + (1|rep/site_crop_yr) + (1|yr), data= soybeancc)
+qqnorm(resid(soybean_cc1))
+plot(soybean_cc1)
+#THis is a beauty, use the log transformation
+summary(soybean_cc1)
+anova(soybean_cc1)
+#Termination and Location fixed effects significant
+```
+
+```{r}
+soy_cclsmeans <- lsmeans(soybean_cc1, ~termination, contr="pairwise", adjust="none", type= "response")
+soy_cccld <- cld(soy_cclsmeans$lsmeans, alpha=0.05, Letters=letters, adjust="tukey", sort =TRUE, reverse = TRUE)
+# These dataset have a huge CIs
+soy_cc1lsmeans <- lsmeans(soybean_cc1, ~location, contr="pairwise", adjust="none", type= "response")
+soy_cc1cld <- cld(soy_cc1lsmeans$lsmeans, alpha=0.05, Letters=letters, adjust="none", sort = FALSE, reverse= TRUE)
+# These dataset have a huge CIs
+```

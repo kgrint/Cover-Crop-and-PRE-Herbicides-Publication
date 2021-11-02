@@ -26,10 +26,9 @@ library(patchwork)
 ```
 
 ```{r load-data, include= FALSE}
-data = read_csv(file="SystemsProjectMasterDataforR.csv")
+data = read_csv(file="SystemsPubData_KG.csv")
 ylab.text1= bquote('Yield'~(kg~ha^-1))
 ylab.text2= bquote('Yield'~(bu~acre^-1))
-expression("Yield kg ha"^"-1")
 ```
 
 
@@ -38,16 +37,16 @@ data1 <- data %>%
   janitor::clean_names() %>% 
   mutate(rep = as_factor(rep),
          year = as_factor(year),
-         pre = fct_recode(pre,
-                          "Yes PRE" = "Y",
-                          "No PRE"  = "N"),
-         soil = fct_recode(soil,
-                           "Tillage" = "CT",
-                           "No-Till" = "NT",
-                           "Early Termination" = "CCET",
-                           "Plant Termination" = "CCPT",
-                           "Forage Harvest" = "CCFH",
-                           "Late Termination" = "CCLT"),
+         #pre = fct_recode(pre,
+                          #"Yes PRE" = "Y",
+                          #"No PRE"  = "N"),
+        # soil = fct_recode(soil,
+                           #"Tillage" = "CT",
+                           #"No-Till" = "NT",
+                           #"Early Termination" = "CCET",
+                           #"Plant Termination" = "CCPT",
+                           #"Forage Harvest" = "CCFH",
+                           #"Late Termination" = "CCLT"),
           weed_control = round(weed_control/100, 2),
           weed_control = case_when(
            weed_control == 1.00 ~ 0.99,
@@ -61,8 +60,8 @@ corn= data1 %>%
 soybean= data1 %>%
   filter(crop == "Soybean") %>%
   mutate(weed_cover= 1-weed_control)
-#order<- c("CT", "NT", "CCET", "CCPT","CCFH","CCLT")
-order<- c("Tillage", "No-Till", "Early Termination", "Plant Termination", "Forage Harvest", "Late Termination")
+order<- c("CT", "NT", "CCET", "CCPT","CCFH","CCLT")
+#order<- c("Tillage", "No-Till", "Early Termination", "Plant Termination", "Forage Harvest", "Late Termination")
 ```
 
 # Yield 
@@ -90,26 +89,27 @@ summary(arl_corn_yld)
 
 ```{r}
 anova(arl_corn_yld)
-#Soil and PRE fixed effects significant
+#Soil fixed effect significant
 ```
 
 ```{r}
-arl_cornyld_soillsmeans= lsmeans(arl_corn_yld, ~ soil, contr="pairwise", adjust="none")
-arl_cornyld_soilcld= cld(arl_cornyld_soillsmeans$lsmeans, alpha=0.05, Letters=letters, adjust="tukey", sort=TRUE, reverse=TRUE)
+arl_cornyld_soillsmeans= lsmeans(arl_corn_yld, ~ soil, contr="pairwise", adjust="tukey")
+arl_cornyld_soilcld= cld(arl_cornyld_soillsmeans$lsmeans, alpha=0.05, Letters=letters, sort=TRUE, reverse=TRUE)
 arl_cornyld_soilcld <- as_tibble(arl_cornyld_soilcld) %>% 
   rename(yield = lsmean) %>%
-  mutate(soil= factor(soil, levels= order)) %>%
+  mutate(soil= factor(soil, levels= order),
+         location= "Arlington") %>%
   arrange(soil)
 ```
 
 ```{r}
 y1 = ggplot(arl_cornyld_soilcld, aes(x = soil, y = yield, 
                                      color = soil)) +
-  geom_point(size= 3) +
-  geom_errorbar(aes(ymin= lower.CL, ymax= upper.CL), width= .3) +
-  geom_text(aes(label = .group), nudge_y = 2800, size=6) +
+  geom_point(size= 5) +
+  geom_errorbar(aes(ymin= lower.CL, ymax= upper.CL), width= .3, size= 1) +
+  geom_text(aes(label = .group), nudge_y = 3100, size=7) +
   geom_jitter(data = corn %>% 
-                filter(location == "Arlington"), mapping = aes(y = yield), alpha = 0.2) +
+                filter(location == "Arlington"), mapping = aes(y = yield), alpha = 0.2, size= 3) +
   #coord_flip() +
   #scale_y_continuous(sec.axis = sec_axis(trans = ~./2.47/.454/56, name= ylab.text2))+
   theme_bw() +
@@ -135,27 +135,27 @@ summary(lan_corn_yld)
 
 ```{r}
 anova(lan_corn_yld)
-#Soil fixed effects significant
+#Soil fixed effect significant
 ```
 
 ```{r}
-lan_cornyld_soillsmeans= lsmeans(lan_corn_yld, ~ soil, contr="pairwise", adjust="none")
-lan_cornyld_soilcld= cld(lan_cornyld_soillsmeans$lsmeans, alpha=0.05, Letters=letters, adjust="tukey", sort=TRUE, reverse=TRUE)
+lan_cornyld_soillsmeans= lsmeans(lan_corn_yld, ~ soil, contr="pairwise", adjust="tukey")
+lan_cornyld_soilcld= cld(lan_cornyld_soillsmeans$lsmeans, alpha=0.05, Letters=letters, sort=TRUE, reverse=TRUE)
 lan_cornyld_soilcld <- as_tibble(lan_cornyld_soilcld) %>% 
   rename(yield = lsmean) %>%
-  mutate(soil= factor(soil, levels= order)) %>%
+  mutate(soil= factor(soil, levels= order),
+         location= "Lancaster") %>%
   arrange(soil)
 ```
 
 
 ```{r}
-y2 = ggplot(lan_cornyld_soilcld, aes(x = soil, y = yield, 
-                       color = soil)) +
-  geom_point(size= 3) +
-  geom_errorbar(aes(ymin= lower.CL, ymax= upper.CL), width= .3) +
-  geom_text(aes(label = .group), nudge_y = 3000, size=6) +
+y2 = ggplot(lan_cornyld_soilcld, aes(x = soil, y = yield, color = soil)) +
+  geom_point(size= 5) +
+  geom_errorbar(aes(ymin= lower.CL, ymax= upper.CL), width= .3, size= 1) +
+  geom_text(aes(label = .group), nudge_y = 3300, size=7) +
   geom_jitter(data = corn %>% 
-                filter(location == "Lancaster"), mapping = aes(y = yield), alpha = 0.2) +
+                filter(location == "Lancaster"), mapping = aes(y = yield), alpha = 0.2, size= 3) +
   #scale_y_continuous(sec.axis= sec_axis(~./2.47/.454/56, name= ylab.text2), limits= c(0,19000)) +
   #coord_flip() +
   theme_bw() +
@@ -169,7 +169,6 @@ y2 = ggplot(lan_cornyld_soilcld, aes(x = soil, y = yield,
   ylim(0,19000)+
   labs(title = "Lancaster", y= ylab.text1, x= "") 
 ```
-
 
 ```{r}
 ### Non-journal figures
@@ -215,21 +214,41 @@ y6 = ggplot(lan_cornyld_soilcld, aes(x = soil, y = yield,
 ```{r, fig.height= 6, fig.width= 12}
 CNyield <- {y1 + y2}+
   plot_annotation(title = 'Corn Yield',
-  #subtitle = "2019 - 2020 Wisconsin",
   theme = theme(plot.title = element_text(size = 30),
-                plot.subtitle= element_text(size = 20))) 
-  #ggsave("Corn_YieldFigureSI.jpeg", height= 6, width= 12)#Need to alter element text
+                plot.subtitle= element_text(size = 20)))
+ggsave("Corn_YieldFigureSI.jpeg", height= 6, width= 12)#Need to alter element text
+
 CNyield
 ```
 
 
-```{r, fig.height= 12, fig.width= 12}
-CNyield1 <- {y5/y6}
+### Corn Yield Figure with 1 X-axis label
+
+```{r, fig.width= 12, fig.height= 6}
+CNyieldcld= rbind(arl_cornyld_soilcld, lan_cornyld_soilcld)
+
+y9 = ggplot(CNyieldcld, aes(x = soil, y = yield, color = soil)) +
+  geom_point(size= 5) +
+  geom_errorbar(aes(ymin= lower.CL, ymax= upper.CL), width= .3, size= 1) +
+  geom_text(aes(label = .group), nudge_y = 3300, size=7) +
+  geom_jitter(data = corn, mapping = aes(y = yield), alpha = 0.2, size= 3) +
+  facet_grid(~location)+
+  #scale_y_continuous(sec.axis= sec_axis(~./2.47/.454/56, name= ylab.text2), limits= c(0,19000)) +
+  #coord_flip() +
+  theme_bw() +
+  scale_color_brewer(palette = "Dark2") +
+    theme(legend.position = "none",
+        plot.title= element_text(size=30),
+        axis.title.x=element_text(size= 25),
+        axis.title.y= element_text(size= 25),
+        axis.text= element_text(size= 15),
+        strip.text.x= element_text(size=25)) +
+  ylim(0,19000) + 
+  labs(title = "Corn Yield", x= "Soil Management Practice", y= ylab.text1)
+
+y9
 ```
 
-```{r, fig.height= 6, fig.width= 15}
-CNyield2 <- {y5+y6}
-```
 
 
 
@@ -257,11 +276,11 @@ soyyld_soilcld <- as_tibble(soyyld_soilcld) %>%
 ```{r}
 y3 <- ggplot(filter(soyyld_soilcld, location == "Arlington"), aes(x = soil, y = yield, 
                        color = soil)) +
-  geom_point(size= 3) +
-  geom_errorbar(aes(ymin= lower.CL, ymax= upper.CL), width= .3) +
-  #geom_text(aes(label = .group), nudge_y = 800, size=6) +
+  geom_point(size= 5) +
+  geom_errorbar(aes(ymin= lower.CL, ymax= upper.CL), width= .3, size= 1) +
+  #geom_text(aes(label = .group), nudge_y = 800, size=7) +
   geom_jitter(data = soybean %>% 
-                filter(location == "Arlington"), mapping = aes(y = yield), alpha = 0.2) +
+                filter(location == "Arlington"), mapping = aes(y = yield), alpha = 0.2, size= 3) +
   #coord_flip() +
   #scale_y_continuous(sec.axis= sec_axis(~./2.47/.454/56, name= ylab.text2), limits= c(0,19000))+
   theme_bw() +
@@ -279,11 +298,11 @@ y3 <- ggplot(filter(soyyld_soilcld, location == "Arlington"), aes(x = soil, y = 
 ```{r}
 y4 <- ggplot(filter(soyyld_soilcld, location == "Lancaster"), aes(x = soil, y = yield, 
                        color = soil)) +
-  geom_point(size= 3) +
-  geom_errorbar(aes(ymin= lower.CL, ymax= upper.CL), width= .3) +
+  geom_point(size= 5) +
+  geom_errorbar(aes(ymin= lower.CL, ymax= upper.CL), width= .3, size= 1) +
   #geom_text(aes(label = .group), nudge_y = 700, size=6) +
   geom_jitter(data = soybean %>% 
-                filter(location == "Lancaster"), mapping = aes(y = yield), alpha = 0.2) +
+                filter(location == "Lancaster"), mapping = aes(y = yield), alpha = 0.2, size= 3) +
   #coord_flip() +
   #scale_y_continuous(sec.axis= sec_axis(~./2.47/.454/56, name= ylab.text2), limits= c(0,19000))+
   theme_bw() +
@@ -347,7 +366,7 @@ SByield<- {y3 + y4}+
   #subtitle = "2019 - 2020 Wisconsin",
   theme = theme(plot.title = element_text(size = 30),
                 plot.subtitle= element_text(size = 20))) 
-  #ggsave("Corn_YieldFigureSI.jpeg", height= 6, width= 12)#Need to alter element text
+  ggsave("Soy_YieldFigureSI.jpeg", height= 6, width= 12)#Need to alter element text
 SByield
 ```
 

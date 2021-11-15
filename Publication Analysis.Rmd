@@ -191,8 +191,8 @@ y2= ggplot(soyyld_soilcld, aes(x = soil, y = yield,
         axis.title.x=element_text(size= 25),
         axis.title.y= element_text(size= 25),
         axis.text= element_text(size= 15),
-        strip.text.x= element_text(size=25))+
-  ylim(0,6200)+
+        strip.text.x= element_text(size=25)) +
+  ylim(0,6200) +
   labs(title = "Soybean Yield", x= "Soil Management Practice", y= ylab.text1)
 
 y2

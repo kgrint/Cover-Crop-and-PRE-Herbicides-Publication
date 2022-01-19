@@ -290,6 +290,8 @@ lansoy_weedcld <- as_tibble(lansoy_weedcld) %>%
   mutate(soil= factor(soil, levels= order),
          location= "Lancaster") %>%
   arrange(soil)
+
+
 ```
 
 ```{r, fig.height= 6, fig.width= 12}
@@ -323,9 +325,9 @@ glmmTMB:::Anova.glmmTMB(soy_weed1)
 ```
 
 ```{r}
-soy_weedemmeans <- emmeans(soy_weed1, ~ soil*pre, contr="pairwise", adjust="none", type= "response")
+soy_weedemmeans <- emmeans(soy_weed1, ~ soil*pre, contr="pairwise", adjust="tukey", type= "response")
 # Consider using | instead * if you want to compare soil manag in each pre
-soy_weedcld <- cld(soy_weedemmeans$emmeans, alpha=0.05, Letters=letters, adjust="tukey", sort=TRUE, reverse= TRUE)
+soy_weedcld <- cld(soy_weedemmeans$emmeans, alpha=0.05, Letters=letters, adjust="none", sort=TRUE, reverse= TRUE)
 soy_weedcld <- as_tibble(soy_weedcld) %>% 
   rename(weed_cover = response) %>%
   mutate(soil= factor(soil, levels= order)) %>%
@@ -349,7 +351,7 @@ w4 <- ggplot(soy_weedcld, aes(x = soil, y = weed_cover*100, color = soil)) +
         axis.text= element_text(size= 15),
         strip.text= element_text(size= 25))+
   ylim(0,100)+
-  labs(title= "Soybean Weed Ground Cover",x= "Soil Management Practice", y= "% Weed Ground Cover")
+  labs(title= "Soybean Weed Ground Cover - Tukey",x= "Soil Management Practice", y= "% Weed Ground Cover")
 w4
 
 ```

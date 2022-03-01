@@ -60,7 +60,7 @@ corn= data1 %>%
 soybean= data1 %>%
   filter(crop == "Soybean") %>%
   mutate(weed_cover= 1-weed_control)
-#order<- c("CT", "NT", "CCET", "CCPT","CCFH","CCLT")
+
 order<- c("Tillage", "No-Till", "Early Termination", "Plant Termination", "Forage Harvest", "Late Termination")
 ```
 
@@ -72,7 +72,6 @@ corn_yld= lmer(yield ~ soil * pre * location + (1|rep/site_crop_yr) + (1|year), 
 qqnorm(resid(corn_yld))
 plot(corn_yld)
 #assumptions met
-summary(corn_yld)
 ```
 
 ```{r}
@@ -88,8 +87,6 @@ qqnorm(resid(arl_corn_yld))
 plot(arl_corn_yld)
 #assumptions met
 
-summary(arl_corn_yld)
-#variance between reps is very small
 ```
 
 ```{r}
@@ -141,15 +138,14 @@ y1 = ggplot(CNyieldcld, aes(x = soil, y = yield, color = soil)) +
   geom_text(aes(label = .group), nudge_y = 3300, size=7) +
   geom_jitter(data = corn, mapping = aes(y = yield), alpha = 0.2, size= 3) +
   facet_grid(~location)+
-  #scale_y_continuous(sec.axis= sec_axis(~./2.47/.454/56, name= ylab.text2), limits= c(0,19000)) +
-  #coord_flip() +
   theme_bw() +
   scale_color_brewer(palette = "Dark2") +
     theme(legend.position = "none",
         plot.title= element_text(size=25),
         axis.title.x=element_text(size= 25),
-        axis.title.y= element_text(size= 25),
-        axis.text= element_text(size= 15),
+        axis.title.y=element_text(size= 25),
+        axis.text.x= element_text(size= 15, angle= 45, hjust= 1),
+        axis.text.y= element_text(size= 15),
         strip.text.x= element_text(size=25)) +
   ylim(0,19000) + 
   labs(title = "Corn Yield", x= "Soil Management Practice", y= ylab.text1)
@@ -159,7 +155,7 @@ y1
 ggsave("Corn_Yield_Figure.jpeg", plot= y1, height= 8, width= 12, dpi = 300)
 ```
 
-### Imperial Units
+### Imperial Units For Extension
 ```{r, fig.width= 12, fig.height= 6}
 CNyieldcld= rbind(arl_cornyld_soilcld, lan_cornyld_soilcld)
 
@@ -179,7 +175,6 @@ y1.1 = ggplot(CNyieldcld, aes(x = soil, y = yield, color = soil)) +
         axis.title.y= element_text(size= 25),
         axis.text= element_text(size= 15),
         strip.text.x= element_text(size=25)) +
-  #ylim(0,19000) + 
   labs(title = "Corn Yield", x= "Soil Management Practice", y= ylab.text1)
 
 y1.1
@@ -219,8 +214,9 @@ y2= ggplot(soyyld_soilcld, aes(x = soil, y = yield,
   theme(legend.position = "none",
         plot.title= element_text(size=25),
         axis.title.x=element_text(size= 25),
-        axis.title.y= element_text(size= 25),
-        axis.text= element_text(size= 15),
+        axis.title.y=element_text(size= 25),
+        axis.text.x= element_text(size= 15, angle= 45, hjust= 1),
+        axis.text.y= element_text(size= 15),
         strip.text.x= element_text(size=25)) +
   ylim(0,6200) +
   labs(title = "Soybean Yield", x= "Soil Management Practice", y= ylab.text1)
@@ -230,7 +226,7 @@ y2
 ggsave("Soybean_Yield_Figure.jpeg", plot= y2, height= 8, width= 12, dpi = 300)
 ```
 
-### Imperial
+### Imperial Units for Extension
 ```{r, fig.height= 6, fig.width= 12}
 y2.2= ggplot(soyyld_soilcld, aes(x = soil, y = yield, 
                        color = soil)) +
@@ -248,7 +244,6 @@ y2.2= ggplot(soyyld_soilcld, aes(x = soil, y = yield,
         axis.title.y= element_text(size= 25),
         axis.text= element_text(size= 15),
         strip.text.x= element_text(size=25)) +
-  #ylim(0,6200) +
   labs(title = "Soybean Yield", x= "Soil Management Practice", y= ylab.text1)
 
 y2.2
@@ -264,24 +259,11 @@ corn_weed = glmmTMB(weed_cover ~ soil * pre * location + (1|rep/site_crop_yr) + 
 glmmTMB:::Anova.glmmTMB(corn_weed, repr = "FALSE") # use the Anova function from the glmmTMB package
 ```
 
-```{r}
-cn_weedemmeans <- emmeans(corn_weed, ~ soil * pre, contr="pairwise", type= "response")
-# If you want to show facet_grid by pre you should use | instead of *
-cn_weedcld <- cld(cn_weedemmeans$emmeans, alpha=0.05, Letters=letters, sort = TRUE, reverse = TRUE, adjust="none",)
-# sort = FALSE reverse letters
-#Kolby- When I have Sort= TRUE, I don't have the issue with letters being patchy
-cn_weedcld <- as_tibble(cn_weedcld) %>% 
-  rename(weed_cover = response) %>%
-  mutate(soil= factor(soil, levels= order)) %>%
-  arrange(soil)
-```
 
 ```{r}
-cn_weedemmeans <- emmeans(corn_weed, ~ soil * pre, contr="pairwise", type= "response")
-# If you want to show facet_grid by pre you should use | instead of *
+cn_weedemmeans <- emmeans(corn_weed, ~ soil * pre, contr="pairwise", type= "response")*
 cn_weedcld <- cld(cn_weedemmeans$emmeans, alpha=0.05, Letters=letters, sort = TRUE, reverse = TRUE, adjust="sidak")
-# sort = FALSE reverse letters
-#Kolby- When I have Sort= TRUE, I don't have the issue with letters being patchy
+
 cn_weedcld <- as_tibble(cn_weedcld) %>% 
   rename(weed_cover = response) %>%
   mutate(soil= factor(soil, levels= order)) %>%
@@ -293,7 +275,7 @@ cn_weedcld <- as_tibble(cn_weedcld) %>%
 w1= ggplot(cn_weedcld, aes(x = soil, y = weed_cover*100, color = soil)) +
   geom_point(size= 5) +
   geom_errorbar(aes(ymin= lower.CL*100, ymax= upper.CL*100), width= .3, size= 1) +
-  geom_text(aes(label = .group), nudge_y = 30, size= 7) +
+  geom_text(aes(label = .group), nudge_y = c(35,20,35,20,35,20,35,20,35,20,20,20), size= 7) +
   geom_jitter(data = corn, mapping = aes(y = weed_cover*100), alpha = 0.2, size= 3) +
   facet_wrap(~pre)+
   theme_bw() +
@@ -318,7 +300,7 @@ ggsave("Corn_Weed_Figure.jpeg", plot= w1, height= 8, width= 12, dpi = 300)
 ```{r}
 soy_weed= glmmTMB(weed_cover ~ soil * pre * location + (1|rep/site_crop_yr) + (1|year), data = soybean, beta_family(link="logit"))
 glmmTMB:::Anova.glmmTMB(soy_weed)
-#Soil:PRE and Soil:location interactions significant. Proceeded to assess soil:Pre interaction and perform separate analyses with soil
+#Soil:PRE and Soil:location interactions significant. Proceeded to assess soil:Pre interaction and soil:location separately
 ```
 
 
@@ -330,8 +312,8 @@ glmmTMB:::Anova.glmmTMB(arlsoy_weed)
 ```
 
 ```{r}
-arlsoy_weedemmeans <- emmeans(arlsoy_weed, ~ soil, contr="pairwise", adjust="tukey", type= "response")
-arlsoy_weedcld <- cld(arlsoy_weedemmeans$emmeans, alpha=0.05, Letters=letters, adjust="none", sort = FALSE, reverse= FALSE)
+arlsoy_weedemmeans <- emmeans(arlsoy_weed, ~ soil, contr="pairwise", type= "response")
+arlsoy_weedcld <- cld(arlsoy_weedemmeans$emmeans, alpha=0.05, Letters=letters, adjust="sidak", sort = FALSE, reverse= FALSE)
 arlsoy_weedcld <- as_tibble(arlsoy_weedcld) %>% 
   rename(weed_cover = response) %>%
   mutate(soil= factor(soil, levels= order),
@@ -348,16 +330,13 @@ glmmTMB:::Anova.glmmTMB(lansoy_weed)
 ```
 
 ```{r}
-lansoy_weedemmeans <- emmeans(lansoy_weed, ~ soil, contr="pairwise", adjust="tukey", type= "response")
-lansoy_weedcld <- cld(lansoy_weedemmeans$emmeans, alpha=0.05, Letters=letters, adjust="none", sort = FALSE, reverse= TRUE)
-# consider adjusting (adjust = "Tukey"). 
+lansoy_weedemmeans <- emmeans(lansoy_weed, ~ soil, contr="pairwise", type= "response")
+lansoy_weedcld <- cld(lansoy_weedemmeans$emmeans, alpha=0.05, Letters=letters, adjust="sidak", sort = FALSE, reverse= TRUE)
 lansoy_weedcld <- as_tibble(lansoy_weedcld) %>% 
   rename(weed_cover = response)%>%
   mutate(soil= factor(soil, levels= order),
          location= "Lancaster") %>%
   arrange(soil)
-
-
 ```
 
 ```{r, fig.height= 6, fig.width= 12}
@@ -366,7 +345,7 @@ SB_weedcld= rbind(arlsoy_weedcld, lansoy_weedcld)
 w2 <- ggplot(SB_weedcld, aes(x = soil, y = weed_cover*100, color = soil)) +
   geom_point(size= 5) +
   geom_errorbar(aes(ymin= lower.CL*100, ymax= upper.CL*100), width= .3, size=1) +
-  geom_text(aes(label = .group), nudge_y = 30, size=7) +
+  geom_text(aes(label = .group), nudge_y = c(30,30,30,30,30,25,20,20,20,20,20,20), size=7) +
   geom_jitter(data = soybean, mapping = aes(y = weed_cover*100), alpha = 0.2, size=3) +
   facet_grid(~location)+
   theme_bw() +
@@ -375,7 +354,8 @@ w2 <- ggplot(SB_weedcld, aes(x = soil, y = weed_cover*100, color = soil)) +
         plot.title= element_text(size=25),
         axis.title.x=element_text(size= 25),
         axis.title.y=element_text(size= 25),
-        axis.text= element_text(size= 15),
+        axis.text.x= element_text(size= 15, angle= 45, hjust= 1),
+        axis.text.y= element_text(size= 15),
         strip.text.x= element_text(size=25))+
   ylim(0,100)+
   labs(title = "Soybean Weed Ground Cover", x= "Soil Management Practice", y= "% Weed Ground Cover")
@@ -392,9 +372,8 @@ glmmTMB:::Anova.glmmTMB(soy_weed1)
 ```
 
 ```{r}
-soy_weedemmeans <- emmeans(soy_weed1, ~ soil*pre, contr="pairwise", adjust="tukey", type= "response")
-# Consider using | instead * if you want to compare soil manag in each pre
-soy_weedcld <- cld(soy_weedemmeans$emmeans, alpha=0.05, Letters=letters, adjust="none", sort=TRUE, reverse= TRUE)
+soy_weedemmeans <- emmeans(soy_weed1, ~ soil*pre, contr="pairwise", type= "response")
+soy_weedcld <- cld(soy_weedemmeans$emmeans, alpha=0.05, Letters=letters, adjust="sidak", sort=TRUE, reverse= TRUE)
 soy_weedcld <- as_tibble(soy_weedcld) %>% 
   rename(weed_cover = response) %>%
   mutate(soil= factor(soil, levels= order)) %>%
@@ -405,18 +384,18 @@ soy_weedcld <- as_tibble(soy_weedcld) %>%
 w4 <- ggplot(soy_weedcld, aes(x = soil, y = weed_cover*100, color = soil)) +
   geom_point(size= 5) +
   geom_errorbar(aes(ymin= lower.CL*100, ymax= upper.CL*100), width= .3, size= 1) +
-  geom_text(aes(label = .group), nudge_y = 40, size=7) +
+  geom_text(aes(label = .group), nudge_y = c(40,35,40,35,40,35,40,35,40,35,25,25), size=7) +
   geom_jitter(data = soybean, mapping = aes(y = weed_cover*100), alpha = 0.2, size= 3) +
   facet_wrap(~pre)+
-  #coord_flip() +
   theme_bw() +
   scale_color_brewer(palette = "Dark2") +
    theme(legend.position = "none",
         plot.title= element_text(size=25),
         axis.title.x=element_text(size= 25),
         axis.title.y=element_text(size= 25),
-        axis.text= element_text(size= 15),
-        strip.text= element_text(size= 25))+
+        axis.text.x= element_text(size= 15, angle= 45, hjust= 1),
+        axis.text.y= element_text(size= 15),
+        strip.text.x= element_text(size=25))+
   ylim(0,100)+
   labs(title= "Soybean Weed Ground Cover", x= "Soil Management Practice", y= "% Weed Ground Cover")
 w4
@@ -459,15 +438,10 @@ soybeancc <- data2 %>%
 corn_ccpre <- lmer(field_bio ~ late_pre * location + (1|rep/site_crop_yr) + (1|yr), data= filter(corncc, termination == "Late"))
 qqnorm(resid(corn_ccpre))
 plot(corn_ccpre)
-#assumptions met okay
-anova(corn_ccpre)
-#nothing significant
-```
+#assumptions met 
 
-```{r}
-cn_ccprelsmeans= lsmeans(corn_ccpre, ~late_pre, contr="pairwise", adjust="none", type= "response")
-cn_ccprecld= cld(cn_ccprelsmeans$lsmeans, alpha=0.05, Letters=letters, adjust="none", sort=TRUE, reverse= TRUE)
-cn_ccprecld
+anova(corn_ccpre)
+#nothing significant. PRE herbicide had no effect on CC biomass in corn
 ```
 
 
@@ -476,7 +450,8 @@ cn_ccprecld
 soybean_ccpre= lmer(field_bio ~ late_pre * location + (1|rep/site_crop_yr) + (1|yr), data= filter(soybeancc, termination == "Late"))
 qqnorm(resid(soybean_ccpre))
 plot(soybean_ccpre)
-#assumptions met okay
+#assumptions met 
+
 anova(soybean_ccpre)
 #nothing significant. PRE herbicide had no effect on CC biomass in soybeans
 ```
@@ -484,7 +459,6 @@ anova(soybean_ccpre)
 
 
 ## Corn CC Biomass
-
 ```{r}
 corncc <- corncc %>%
   filter(late_pre != "Yes PRE")
@@ -512,10 +486,10 @@ anova(corn_cc2)
 ```
 
 ```{r}
-cn_cclsmeans1= lsmeans(corn_cc2, ~location, contr="pairwise", adjust="tukey", type= "response")
+cn_cclsmeans1= lsmeans(corn_cc2, ~location, contr="pairwise", type= "response")
 cn_cccld1= cld(cn_cclsmeans1$lsmeans, alpha=0.05, Letters=letters, adjust="none", sort=TRUE, reverse= FALSE)
 cn_cccld1
-cn_cclsmeans= lsmeans(corn_cc2, ~termination, contr="pairwise", adjust="tukey", type= "response")
+cn_cclsmeans= lsmeans(corn_cc2, ~termination, contr="pairwise", type= "response")
 cn_cccld= cld(cn_cclsmeans$lsmeans, alpha=0.05, Letters=letters, adjust="none", sort=TRUE, reverse= FALSE)
 cn_cccld
 ```
@@ -552,12 +526,12 @@ anova(soybean_cc1)
 ```
 
 ```{r}
-soy_cclsmeans <- lsmeans(soybean_cc1, ~termination, contr="pairwise", adjust="tukey", type= "response")
-soy_cccld <- cld(soy_cclsmeans$lsmeans, alpha=0.05, Letters=letters, adjust="none", sort =TRUE, reverse = TRUE)
-# These dataset have a huge CIs
-soy_cc1lsmeans <- lsmeans(soybean_cc1, ~location, contr="pairwise", adjust="tukey", type= "response")
-soy_cc1cld <- cld(soy_cc1lsmeans$lsmeans, alpha=0.05, Letters=letters, adjust="none", sort = FALSE, reverse= TRUE)
-# These dataset have a huge CIs
+soy_cclsmeans <- lsmeans(soybean_cc1, ~termination, contr="pairwise", type= "response")
+soy_cccld <- cld(soy_cclsmeans$lsmeans, alpha=0.05, Letters=letters, adjust="sidak", sort =TRUE, reverse = TRUE)
+
+soy_cc1lsmeans <- lsmeans(soybean_cc1, ~location, contr="pairwise", type= "response")
+soy_cc1cld <- cld(soy_cc1lsmeans$lsmeans, alpha=0.05, Letters=letters, adjust="sidak", sort = FALSE, reverse= TRUE)
+
 
 soy_cccld
 soy_cc1cld

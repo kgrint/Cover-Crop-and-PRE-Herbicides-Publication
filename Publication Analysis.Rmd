@@ -444,6 +444,12 @@ anova(corn_ccpre)
 #nothing significant. PRE herbicide had no effect on CC biomass in corn
 ```
 
+```{r}
+cn_prelsmeans= lsmeans(corn_ccpre, ~late_pre, contr="pairwise", type= "response")
+cn_precld= cld(cn_prelsmeans$lsmeans, alpha=0.05, Letters=letters, adjust="sidak", sort=TRUE, reverse= FALSE)
+cn_precld
+```
+
 
 ## Testing for Potential PRE Effect in Soybean
 ```{r}
@@ -456,6 +462,11 @@ anova(soybean_ccpre)
 #nothing significant. PRE herbicide had no effect on CC biomass in soybeans
 ```
 
+```{r}
+sb_prelsmeans= lsmeans(soybean_ccpre, ~late_pre, contr="pairwise", type= "response")
+sb_precld= cld(sb_prelsmeans$lsmeans, alpha=0.05, Letters=letters, adjust="sidak", sort=TRUE, reverse= FALSE)
+sb_precld
+```
 
 
 ## Corn CC Biomass

@@ -28,6 +28,7 @@ library(patchwork)
 ```{r load-data, include= FALSE}
 data = read_csv(file="SystemsPubData_KG.csv")
 ylab.text1= bquote('Yield'~(kg~ha^-1))
+ylab.text2= bquote('Yield'~(bu~acre^-1))
 ```
 
 
@@ -39,13 +40,13 @@ data1 <- data %>%
          pre = fct_recode(pre,
                           "Yes PRE" = "Y",
                           "No PRE"  = "N"),
-        # soil = fct_recode(soil,
-                           #"Tillage" = "CT",
-                           #"No-Till" = "NT",
-                           #"Early Termination" = "CCET",
-                           #"Plant Termination" = "CCPT",
-                           #"Forage Harvest" = "CCFH",
-                           #"Late Termination" = "CCLT"),
+         soil = fct_recode(soil,
+                           "Tillage" = "CT",
+                           "No-Till" = "NT",
+                           "Early Termination" = "CCET",
+                           "Plant Termination" = "CCPT",
+                           "Forage Harvest" = "CCFH",
+                           "Late Termination" = "CCLT"),
           weed_control = round(weed_control/100, 2),
           weed_control = case_when(
            weed_control == 1.00 ~ 0.99,
@@ -59,8 +60,8 @@ corn= data1 %>%
 soybean= data1 %>%
   filter(crop == "Soybean") %>%
   mutate(weed_cover= 1-weed_control)
-order<- c("CT", "NT", "CCET", "CCPT","CCFH","CCLT")
-#order<- c("Tillage", "No-Till", "Early Termination", "Plant Termination", "Forage Harvest", "Late Termination")
+#order<- c("CT", "NT", "CCET", "CCPT","CCFH","CCLT")
+order<- c("Tillage", "No-Till", "Early Termination", "Plant Termination", "Forage Harvest", "Late Termination")
 ```
 
 # Yield 
@@ -97,8 +98,8 @@ anova(arl_corn_yld)
 ```
 
 ```{r}
-arl_cornyld_soillsmeans= lsmeans(arl_corn_yld, ~ soil, contr="pairwise", adjust="tukey")
-arl_cornyld_soilcld= cld(arl_cornyld_soillsmeans$lsmeans, alpha=0.05, Letters=letters, sort=TRUE, reverse=TRUE)
+arl_cornyld_soillsmeans= lsmeans(arl_corn_yld, ~ soil, contr= "pairwise")
+arl_cornyld_soilcld= cld(arl_cornyld_soillsmeans$lsmeans, alpha=0.05, Letters=letters, sort=TRUE, reverse=TRUE, adjust= "sidak")
 arl_cornyld_soilcld <- as_tibble(arl_cornyld_soilcld) %>% 
   rename(yield = lsmean) %>%
   mutate(soil= factor(soil, levels= order),
@@ -145,7 +146,7 @@ y1 = ggplot(CNyieldcld, aes(x = soil, y = yield, color = soil)) +
   theme_bw() +
   scale_color_brewer(palette = "Dark2") +
     theme(legend.position = "none",
-        plot.title= element_text(size=30),
+        plot.title= element_text(size=25),
         axis.title.x=element_text(size= 25),
         axis.title.y= element_text(size= 25),
         axis.text= element_text(size= 15),
@@ -154,10 +155,37 @@ y1 = ggplot(CNyieldcld, aes(x = soil, y = yield, color = soil)) +
   labs(title = "Corn Yield", x= "Soil Management Practice", y= ylab.text1)
 
 y1
+
+ggsave("Corn_Yield_Figure.jpeg", plot= y1, height= 8, width= 12, dpi = 300)
 ```
 
+### Imperial Units
+```{r, fig.width= 12, fig.height= 6}
+CNyieldcld= rbind(arl_cornyld_soilcld, lan_cornyld_soilcld)
 
+y1.1 = ggplot(CNyieldcld, aes(x = soil, y = yield, color = soil)) +
+  geom_point(size= 5) +
+  geom_errorbar(aes(ymin= lower.CL, ymax= upper.CL), width= .3, size= 1) +
+  geom_text(aes(label = .group), nudge_y = 3300, size=7) +
+  geom_jitter(data = corn, mapping = aes(y = yield), alpha = 0.2, size= 3) +
+  facet_grid(~location)+
+  scale_y_continuous(sec.axis= sec_axis(~./2.47/.454/56, name= ylab.text2), limits= c(0,19000)) +
+  coord_flip() +
+  theme_bw() +
+  scale_color_brewer(palette = "Dark2") +
+    theme(legend.position = "none",
+        plot.title= element_text(size=25),
+        axis.title.x=element_text(size= 25),
+        axis.title.y= element_text(size= 25),
+        axis.text= element_text(size= 15),
+        strip.text.x= element_text(size=25)) +
+  #ylim(0,19000) + 
+  labs(title = "Corn Yield", x= "Soil Management Practice", y= ylab.text1)
 
+y1.1
+
+ggsave("Corn_Yield_FigureExtension.jpeg", plot= y1.1, height= 8, width= 12, dpi = 300)
+```
 
 ## Soybean
 ```{r}
@@ -170,10 +198,8 @@ anova(soy_yld)
 ```
 
 ```{r}
-soyyld_lsmeans= lsmeans(soy_yld, ~ location, contr="pairwise", adjust="none")
-soyyld_lcld= cld(soyyld_lsmeans$lsmeans, alpha=0.05, Letters=letters, adjust="tukey", sort=TRUE, reverse=TRUE)
 soyyld_soillsmeans= lsmeans(soy_yld, ~ soil|location, contr="pairwise", adjust="none")
-soyyld_soilcld= cld(soyyld_soillsmeans$lsmeans, alpha=0.05, Letters=letters, adjust="tukey", sort=TRUE, reverse=TRUE)
+soyyld_soilcld= cld(soyyld_soillsmeans$lsmeans, alpha=0.05, Letters=letters, adjust="sidak", sort=TRUE, reverse=TRUE)
 soyyld_soilcld <- as_tibble(soyyld_soilcld) %>% 
   rename(yield = lsmean) %>%
   mutate(soil= factor(soil, levels= order)) %>%
@@ -200,9 +226,35 @@ y2= ggplot(soyyld_soilcld, aes(x = soil, y = yield,
   labs(title = "Soybean Yield", x= "Soil Management Practice", y= ylab.text1)
 
 y2
+
+ggsave("Soybean_Yield_Figure.jpeg", plot= y2, height= 8, width= 12, dpi = 300)
 ```
 
+### Imperial
+```{r, fig.height= 6, fig.width= 12}
+y2.2= ggplot(soyyld_soilcld, aes(x = soil, y = yield, 
+                       color = soil)) +
+  geom_point(size= 5) +
+  geom_errorbar(aes(ymin= lower.CL, ymax= upper.CL), width= .3, size= 1) +
+  geom_jitter(data = soybean, mapping = aes(y = yield), alpha = 0.2, size= 3) +
+  facet_grid(~location) +
+  scale_y_continuous(sec.axis= sec_axis(~./2.47/.454/60, name= ylab.text2), limits= c(0,6200)) +
+  theme_bw() +
+  coord_flip() +
+  scale_color_brewer(palette = "Dark2") +
+  theme(legend.position = "none",
+        plot.title= element_text(size=25),
+        axis.title.x=element_text(size= 25),
+        axis.title.y= element_text(size= 25),
+        axis.text= element_text(size= 15),
+        strip.text.x= element_text(size=25)) +
+  #ylim(0,6200) +
+  labs(title = "Soybean Yield", x= "Soil Management Practice", y= ylab.text1)
 
+y2.2
+
+ggsave("Soybean_Yield_FigureExtension.jpeg", plot= y2.2, height= 8, width= 12, dpi = 300)
+```
 
 # Weed Control
 
@@ -213,9 +265,9 @@ glmmTMB:::Anova.glmmTMB(corn_weed, repr = "FALSE") # use the Anova function from
 ```
 
 ```{r}
-cn_weedemmeans <- emmeans(corn_weed, ~ soil * pre, contr="pairwise", adjust="tukey", type= "response")
+cn_weedemmeans <- emmeans(corn_weed, ~ soil * pre, contr="pairwise", type= "response")
 # If you want to show facet_grid by pre you should use | instead of *
-cn_weedcld <- cld(cn_weedemmeans$emmeans, alpha=0.05, Letters=letters, sort = TRUE, reverse = TRUE)
+cn_weedcld <- cld(cn_weedemmeans$emmeans, alpha=0.05, Letters=letters, sort = TRUE, reverse = TRUE, adjust="none",)
 # sort = FALSE reverse letters
 #Kolby- When I have Sort= TRUE, I don't have the issue with letters being patchy
 cn_weedcld <- as_tibble(cn_weedcld) %>% 
@@ -224,6 +276,17 @@ cn_weedcld <- as_tibble(cn_weedcld) %>%
   arrange(soil)
 ```
 
+```{r}
+cn_weedemmeans <- emmeans(corn_weed, ~ soil * pre, contr="pairwise", type= "response")
+# If you want to show facet_grid by pre you should use | instead of *
+cn_weedcld <- cld(cn_weedemmeans$emmeans, alpha=0.05, Letters=letters, sort = TRUE, reverse = TRUE, adjust="sidak")
+# sort = FALSE reverse letters
+#Kolby- When I have Sort= TRUE, I don't have the issue with letters being patchy
+cn_weedcld <- as_tibble(cn_weedcld) %>% 
+  rename(weed_cover = response) %>%
+  mutate(soil= factor(soil, levels= order)) %>%
+  arrange(soil)
+```
 
 ### Corn Weed Control Figure
 ```{r, fig.height= 6, fig.width= 12}
@@ -239,11 +302,14 @@ w1= ggplot(cn_weedcld, aes(x = soil, y = weed_cover*100, color = soil)) +
         plot.title= element_text(size=25),
         axis.title.x=element_text(size= 25),
         axis.title.y=element_text(size= 25),
-        axis.text= element_text(size= 15),
+        axis.text.x= element_text(size= 15, angle= 45, hjust= 1),
+        axis.text.y= element_text(size= 15),
         strip.text.x= element_text(size=25))+
   ylim(0,100)+
   labs(title= "Corn Weed Ground Cover", x= "Soil Management Practice", y= "% Weed Ground Cover") 
 w1
+
+ggsave("Corn_Weed_Figure.jpeg", plot= w1, height= 8, width= 12, dpi = 300)
 ```
 
 
@@ -315,6 +381,7 @@ w2 <- ggplot(SB_weedcld, aes(x = soil, y = weed_cover*100, color = soil)) +
   labs(title = "Soybean Weed Ground Cover", x= "Soil Management Practice", y= "% Weed Ground Cover")
 w2
 
+ggsave("Soybean_Weed_Location_Figure.jpeg", plot= w2, height= 8, width= 12, dpi = 300)
 ```
 
 ### Exploring Soil:Pre Interaction
@@ -351,9 +418,10 @@ w4 <- ggplot(soy_weedcld, aes(x = soil, y = weed_cover*100, color = soil)) +
         axis.text= element_text(size= 15),
         strip.text= element_text(size= 25))+
   ylim(0,100)+
-  labs(title= "Soybean Weed Ground Cover - Tukey",x= "Soil Management Practice", y= "% Weed Ground Cover")
+  labs(title= "Soybean Weed Ground Cover", x= "Soil Management Practice", y= "% Weed Ground Cover")
 w4
 
+ggsave("Soybean_Weed_PRE_Figure.jpeg", plot= w4, height= 8, width= 12, dpi = 300)
 ```
 
 
